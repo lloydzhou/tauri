@@ -14,6 +14,7 @@ use url::Url;
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 pub use reqwest::header;
+pub use reqwest::Request;
 
 use header::{HeaderName, HeaderValue};
 
@@ -94,10 +95,10 @@ impl ClientBuilder {
 pub struct Client(reqwest::Client);
 
 impl Client {
-  /// Executes an HTTP request
+  /// Build an HTTP request
   ///
   /// # Examples
-  pub async fn send(&self, mut request: HttpRequestBuilder) -> crate::api::Result<Response> {
+  pub fn build(&self, mut request: HttpRequestBuilder) -> crate::api::Result<Request> {
     let method = Method::from_bytes(request.method.to_uppercase().as_bytes())?;
 
     let mut request_builder = self.0.request(method, request.url.as_str());
@@ -182,11 +183,18 @@ impl Client {
     }
 
     let http_request = request_builder.build()?;
-
-    let response = self.0.execute(http_request).await?;
+    Ok(http_request)
+  }
+  /// Build an HTTP request
+  ///
+  /// # Examples
+  pub async fn send(&self, request: HttpRequestBuilder) -> crate::api::Result<Response> {
+    let response_type = request.response_type.clone().unwrap_or(ResponseType::Json);
+    let http_request = self.build(request);
+    let response = self.0.execute(http_request?).await?;
 
     Ok(Response(
-      request.response_type.unwrap_or(ResponseType::Json),
+      response_type,
       response,
     ))
   }
